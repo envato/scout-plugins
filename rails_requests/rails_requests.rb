@@ -14,8 +14,8 @@ class RailsRequests < Scout::Plugin
 
   OPTIONS=<<-EOS
   log:
-    name: Full Path to Rails Log File
-    notes: "The full path to the Ruby on Rails log file you wish to analyze (ex: /var/www/apps/APP_NAME/current/log/production.log)."
+    name: Full Path to Rails Log File(s)
+    notes: "The full path to the Ruby on Rails log file you wish to analyze (ex: /var/www/apps/APP_NAME/current/log/production.log). This may be a glob pattern that matches multiple files, in which case, they will all be analyzed."
   max_request_length:
     name: Max Request Length (sec)
     notes: If any request length is larger than this amount, an alert is generated (see Advanced for more options)

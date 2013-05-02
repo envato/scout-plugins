@@ -112,9 +112,13 @@ class RailsRequests < Scout::Plugin
       error("A path to the Rails log file wasn't provided.","Please provide the full path to the Rails log file to analyze (ie - /var/www/apps/APP_NAME/log/production.log)")      
       return false
     end
-    # File#exist? returns false if the file exists but isn't readable. This provides a more accurate error message.
     begin 
-      FileTest.size(path)
+      paths = Dir.glob(path)
+      paths = [path] if paths.empty? # handle glob not matching anything - we still want to generate a warning message
+      paths.each do |p|
+        # File#exist? returns false if the file exists but isn't readable. This provides a more accurate error message.
+        FileTest.size(p)
+      end
     rescue Errno::EACCES
       error("The Rails log file isn't readable", "The log file at #{path} isn't readable by the user running Scout. Please update the file permissions to give the user access.")
     rescue Errno::ENOENT

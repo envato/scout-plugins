@@ -57,12 +57,13 @@ class RailsRequests < Scout::Plugin
     init_parser # sets @file_format    
     init_tracking # data the plugin tracks
     init_file_pointers # sets @previous_positions
-    init_previous_last_request_time # sets @previous_last_request_time, @previous_last_request_time_as_timestamp
+    init_previous_last_request_times # sets @previous_last_request_times, @previous_last_request_times_as_timestamps
     
     test_parsing if option(:log_test) # parses a big chunk of the log file if true (ignores previous position)
 
     # set to the time of the last request processed. the next run will start parsing requests later requests.
-    last_request_time  = nil
+    last_request_times  = {}
+    last_request_times[@log_path] = Time.now
     
     # for dev debugging
     skipped_requests_count = 0
@@ -73,9 +74,9 @@ class RailsRequests < Scout::Plugin
       # use the log parser to build requests from the lines.
       @log_parser.parse_io(f) do |request|
         # store the last file position and timestamp of the last request processed.
-        last_request_time = request[:timestamp]
+        last_request_times[@log_path] = request[:timestamp]
         # don't process requests if they are before the last request processed.
-        if request[:timestamp] <= @previous_last_request_time_as_timestamp
+        if request[:timestamp] <= @previous_last_request_times_as_timestamps[@log_path]
           skipped_requests_count += 1
         else
           @total_request_count += 1 
@@ -91,7 +92,7 @@ class RailsRequests < Scout::Plugin
     generate_slow_request_alerts
     generate_memory_leak_alerts
     
-    remember(:last_request_time, last_request_time ? Time.parse(last_request_time.to_s) : Time.now)
+    remember(:last_request_times, last_request_times.map{|k,v| [k, Time.parse(v.to_s)]})
 
     report(aggregate)
   rescue Exception => e
@@ -207,11 +208,13 @@ class RailsRequests < Scout::Plugin
     remember(:previous_positions,current_positions)
   end
   
-  # sets @previous_last_request_time, @previous_last_request_time_as_timestamp
-  def init_previous_last_request_time    
-    @previous_last_request_time = memory(:last_request_time) || Time.now-60 # analyze last minute on first invocation
+  # sets @previous_last_request_times, @previous_last_request_times_as_timestamps
+  def init_previous_last_request_times    
+    @previous_last_request_times = memory(:last_request_times) || {}
+    @previous_last_request_times[@log_path] ||= Time.now-60 # analyze last minute on first invocation
     # Time#parse is slow so uses a specially-formatted integer to compare request times.
-    @previous_last_request_time_as_timestamp = @previous_last_request_time.strftime('%Y%m%d%H%M%S').to_i
+    @previous_last_request_times_as_timestamps = {}
+    @previous_last_request_times_as_timestamps[@log_path] = @previous_last_request_times[@log_path].strftime('%Y%m%d%H%M%S').to_i
   end
   
   # Calculates data to report 
@@ -248,7 +251,7 @@ class RailsRequests < Scout::Plugin
   # calculate the time btw runs in minutes
   # this is used to generate rates.
   def set_interval
-    interval = (Time.now-(@last_run || @previous_last_request_time))
+    interval = (Time.now-(@last_run || @previous_last_request_times.values[0]))
 
     interval < 1 ? interval = 1 : nil # if the interval is less than 1 second (may happen on initial run) set to 1 second
     interval = interval/60 # convert to minutes
@@ -259,8 +262,8 @@ class RailsRequests < Scout::Plugin
   # option(:log_test) = true.
   def test_parsing
     @previous_positions[@log_path]          = 0
-    @previous_last_request_time = Time.now-(60*60*24*300)
-    @previous_last_request_time_as_timestamp = @previous_last_request_time.strftime('%Y%m%d%H%M%S').to_i
+    @previous_last_request_times[@log_path] = Time.now-(60*60*24*300)
+    @previous_last_request_times_as_timestamps[@log_path] = @previous_last_request_times[@log_path].strftime('%Y%m%d%H%M%S').to_i
   end
   
   def parse_request(request) 

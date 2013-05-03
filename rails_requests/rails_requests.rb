@@ -56,7 +56,7 @@ class RailsRequests < Scout::Plugin
     init_ignored_actions # sets @ignored_actions@
     init_parser # sets @file_format    
     init_tracking # data the plugin tracks
-    init_file_pointer # sets @previous_position
+    init_file_pointers # sets @previous_positions
     init_previous_last_request_time # sets @previous_last_request_time, @previous_last_request_time_as_timestamp
     
     test_parsing if option(:log_test) # parses a big chunk of the log file if true (ignores previous position)
@@ -69,7 +69,7 @@ class RailsRequests < Scout::Plugin
     
     File.open(@log_path, 'rb') do |f| 
       # seek to the last position in the log file
-      f.seek(@previous_position, IO::SEEK_SET)      
+      f.seek(@previous_positions[@log_path], IO::SEEK_SET)      
       # use the log parser to build requests from the lines.
       @log_parser.parse_io(f) do |request|
         # store the last file position and timestamp of the last request processed.
@@ -192,18 +192,19 @@ class RailsRequests < Scout::Plugin
   # - if no previous position exists, sets the file pointer to the end of the file - MAX_READ_SIZE
   # - for logrotate, if the previous position is greater than the current one, sets the position to 0
   #   to start with the fresh file.
-  def init_file_pointer
-    @previous_position  = memory(:previous_position)
-    current_position    = `wc -c #{@log_path}`.split(' ')[0].to_i
-    remember(:previous_position,current_position)
-    if @previous_position and current_position < @previous_position
+  def init_file_pointers
+    @previous_positions = memory(:previous_positions) || {}
+    current_positions = {}
+    current_positions[@log_path]  = `wc -c #{@log_path}`.split(' ')[0].to_i
+    if @previous_positions[@log_path] and current_positions[@log_path] < @previous_positions[@log_path]
       # log file rotated - set position to zero
-      @previous_position = 0
-    elsif @previous_position.nil?
+      @previous_positions[@log_path] = 0
+    elsif @previous_positions[@log_path].nil?
       # first run
-      @previous_position = current_position - File::MAX_READ_SIZE
-      @previous_position < 0 ? @previous_position = 0 : nil
+      @previous_positions[@log_path] = current_positions[@log_path] - File::MAX_READ_SIZE
+      @previous_positions[@log_path] < 0 ? @previous_positions[@log_path] = 0 : nil
     end    
+    remember(:previous_positions,current_positions)
   end
   
   # sets @previous_last_request_time, @previous_last_request_time_as_timestamp
@@ -257,7 +258,7 @@ class RailsRequests < Scout::Plugin
   # Will parse a big chunk of the log file when these are set. This method if called if
   # option(:log_test) = true.
   def test_parsing
-    @previous_position          = 0
+    @previous_positions[@log_path]          = 0
     @previous_last_request_time = Time.now-(60*60*24*300)
     @previous_last_request_time_as_timestamp = @previous_last_request_time.strftime('%Y%m%d%H%M%S').to_i
   end

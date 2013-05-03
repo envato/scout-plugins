@@ -45,9 +45,9 @@ class RailsRequests < Scout::Plugin
     # This is eval'd if < RLA 1.11.0 or Ruby < 1.9.
     self.class.class_eval(FILE_EXTS) if Gem::Version.new(RequestLogAnalyzer::VERSION) < Gem::Version.new("1.11.0") or RUBY_VERSION.to_f < 1.9
 
-    @log_path = option(:log)
+    @log_paths = build_log_paths(option(:log))
     
-    @file_found = file_readable?(@log_path)
+    @file_found = !@log_paths.empty?
     return if !@file_found
     
     @max_length = option(:max_request_length).to_f
@@ -63,31 +63,36 @@ class RailsRequests < Scout::Plugin
 
     # set to the time of the last request processed. the next run will start parsing requests later requests.
     last_request_times  = {}
-    last_request_times[@log_path] = Time.now
+    @log_paths.each do |log_path|
+      # set default for file incase it is empty and no requests are processed
+      last_request_times[log_path] = Time.now
+    end
     
     # for dev debugging
     skipped_requests_count = 0
     
-    File.open(@log_path, 'rb') do |f| 
-      # seek to the last position in the log file
-      f.seek(@previous_positions[@log_path], IO::SEEK_SET)      
-      # use the log parser to build requests from the lines.
-      @log_parser.parse_io(f) do |request|
-        # store the last file position and timestamp of the last request processed.
-        last_request_times[@log_path] = request[:timestamp]
-        # don't process requests if they are before the last request processed.
-        if request[:timestamp] <= @previous_last_request_times_as_timestamps[@log_path]
-          skipped_requests_count += 1
-        else
-          @total_request_count += 1 
-          completed_line = request.has_line_type?(:completed)
-          next if completed_line.nil? # request could be a failure. if so, no metrics to parse.
-          parse_request(request)
-        end
-        
-      end # parse_io
-    
-    end # File.open
+    @log_paths.each do |log_path|
+      File.open(log_path, 'rb') do |f| 
+        # seek to the last position in the log file
+        f.seek(@previous_positions[log_path], IO::SEEK_SET)      
+        # use the log parser to build requests from the lines.
+        @log_parser.parse_io(f) do |request|
+          # store the last file position and timestamp of the last request processed.
+          last_request_times[log_path] = request[:timestamp]
+          # don't process requests if they are before the last request processed.
+          if request[:timestamp] <= @previous_last_request_times_as_timestamps[log_path]
+            skipped_requests_count += 1
+          else
+            @total_request_count += 1 
+            completed_line = request.has_line_type?(:completed)
+            next if completed_line.nil? # request could be a failure. if so, no metrics to parse.
+            parse_request(request)
+          end
+          
+        end # parse_io
+      
+      end # File.open
+    end # @log_paths.each
     
     generate_slow_request_alerts
     generate_memory_leak_alerts
@@ -101,24 +106,26 @@ class RailsRequests < Scout::Plugin
     # only run the analyzer if the log file is provided
     # this may take a couple of minutes on large log files.
     if @file_found and option(:log) and not option(:log).empty?
-      generate_log_analysis(@log_path)
+      generate_log_analysis(@log_paths)
     end
   end
   
   private
   
   # Ensure (a) a file path is provided (b) exists (c) is readable. Generates an error and returns +false+ if if the file isn't readable, otherwise +true+.
-  def file_readable?(path)
+  def build_log_paths(path)
     unless path and not path.empty?
       error("A path to the Rails log file wasn't provided.","Please provide the full path to the Rails log file to analyze (ie - /var/www/apps/APP_NAME/log/production.log)")      
       return false
     end
     begin 
+      log_paths = []
       paths = Dir.glob(path)
       paths = [path] if paths.empty? # handle glob not matching anything - we still want to generate a warning message
       paths.each do |p|
         # File#exist? returns false if the file exists but isn't readable. This provides a more accurate error message.
         FileTest.size(p)
+        log_paths << p
       end
     rescue Errno::EACCES
       error("The Rails log file isn't readable", "The log file at #{path} isn't readable by the user running Scout. Please update the file permissions to give the user access.")
@@ -127,7 +134,7 @@ class RailsRequests < Scout::Plugin
     rescue
       error("Unable to read the Rails log file", "The log file at: #{path} couldn't be accessed (#{$!.message}).")
     end
-    data_for_server[:errors].any? ? false : true
+    log_paths
   end
 
   # Process the ignored_actions option -- this is a regex provided by users; matching URIs don't get counted as slow.
@@ -196,25 +203,30 @@ class RailsRequests < Scout::Plugin
   def init_file_pointers
     @previous_positions = memory(:previous_positions) || {}
     current_positions = {}
-    current_positions[@log_path]  = `wc -c #{@log_path}`.split(' ')[0].to_i
-    if @previous_positions[@log_path] and current_positions[@log_path] < @previous_positions[@log_path]
-      # log file rotated - set position to zero
-      @previous_positions[@log_path] = 0
-    elsif @previous_positions[@log_path].nil?
-      # first run
-      @previous_positions[@log_path] = current_positions[@log_path] - File::MAX_READ_SIZE
-      @previous_positions[@log_path] < 0 ? @previous_positions[@log_path] = 0 : nil
-    end    
+    
+    @log_paths.each do |log_path|
+      current_positions[log_path]  = `wc -c #{log_path}`.split(' ')[0].to_i
+      if @previous_positions[log_path] and current_positions[log_path] < @previous_positions[log_path]
+        # log file rotated - set position to zero
+        @previous_positions[log_path] = 0
+      elsif @previous_positions[log_path].nil?
+        # first run
+        @previous_positions[log_path] = current_positions[log_path] - File::MAX_READ_SIZE
+        @previous_positions[log_path] < 0 ? @previous_positions[log_path] = 0 : nil
+      end    
+    end
     remember(:previous_positions,current_positions)
   end
   
   # sets @previous_last_request_times, @previous_last_request_times_as_timestamps
   def init_previous_last_request_times    
     @previous_last_request_times = memory(:last_request_times) || {}
-    @previous_last_request_times[@log_path] ||= Time.now-60 # analyze last minute on first invocation
-    # Time#parse is slow so uses a specially-formatted integer to compare request times.
-    @previous_last_request_times_as_timestamps = {}
-    @previous_last_request_times_as_timestamps[@log_path] = @previous_last_request_times[@log_path].strftime('%Y%m%d%H%M%S').to_i
+    @log_paths.each do |log_path|
+      @previous_last_request_times[log_path] ||= Time.now-60 # analyze last minute on first invocation
+      @previous_last_request_times_as_timestamps = {}
+      # Time#parse is slow so uses a specially-formatted integer to compare request times.
+      @previous_last_request_times_as_timestamps[log_path] = @previous_last_request_times[log_path].strftime('%Y%m%d%H%M%S').to_i
+    end
   end
   
   # Calculates data to report 
@@ -261,9 +273,11 @@ class RailsRequests < Scout::Plugin
   # Will parse a big chunk of the log file when these are set. This method if called if
   # option(:log_test) = true.
   def test_parsing
-    @previous_positions[@log_path]          = 0
-    @previous_last_request_times[@log_path] = Time.now-(60*60*24*300)
-    @previous_last_request_times_as_timestamps[@log_path] = @previous_last_request_times[@log_path].strftime('%Y%m%d%H%M%S').to_i
+    @log_paths.each do |log_path|
+      @previous_positions[log_path]          = 0
+      @previous_last_request_times[log_path] = Time.now-(60*60*24*300)
+      @previous_last_request_times_as_timestamps[log_path] = @previous_last_request_times[log_path].strftime('%Y%m%d%H%M%S').to_i
+    end
   end
   
   def parse_request(request) 
@@ -329,7 +343,7 @@ class RailsRequests < Scout::Plugin
     $VERBOSE, $stdout = old_verbose, STDOUT
   end
   
-  def generate_log_analysis(log_path)
+  def generate_log_analysis(log_paths)
     # decide if it's time to run the analysis yet today
     if option(:rla_run_time) =~ /\A\s*(0?\d|1\d|2[0-3]):(0?\d|[1-4]\d|5[0-9])\s*\z/
       run_hour    = $1.to_i
@@ -363,29 +377,29 @@ class RailsRequests < Scout::Plugin
     
     self.class.class_eval(RLA_EXTS)
     
-    analysis = analyze(last_summary, now, log_path)
+    analysis = analyze(last_summary, now, log_paths)
     summary( :command => "request-log-analyzer --after '"                   +
                          last_summary.strftime('%Y-%m-%d %H:%M:%S')         +
                          "' --before '" + now.strftime('%Y-%m-%d %H:%M:%S') +
-                         "' '#{log_path}'",
+                         "' #{log_paths.map{|p| "'#{p}'"}.join(' ')}",
              :output  => analysis )
-  rescue Exception => error
-    error("#{error.class}:  #{error.message}", error.backtrace.join("\n"))
+  #rescue Exception => error
+  #  error("#{error.class}:  #{error.message}", error.backtrace.join("\n"))
   end
   
-  def analyze(last_summary, stop_time, log_path)
-    log_file = read_backwards_to_timestamp(log_path, last_summary)
+  def analyze(last_summary, stop_time, log_paths)
+    log_files = log_paths.map{|log_path| read_backwards_to_timestamp(log_path, last_summary) }
     if Gem::Version.new(RequestLogAnalyzer::VERSION) <= OLDER_RLA_VERSION
-      analyzer_with_older_rla(last_summary, stop_time, log_file)
+      analyzer_with_older_rla(last_summary, stop_time, log_files)
     else
-      analyzer_with_newer_rla(last_summary, stop_time, log_file)
+      analyzer_with_newer_rla(last_summary, stop_time, log_files)
     end
   end
   
-  def analyzer_with_older_rla(last_summary, stop_time, log_file)
+  def analyzer_with_older_rla(last_summary, stop_time, log_files)
     summary  = StringIO.new
     output   = EmbeddedHTML.new(summary)
-    options  = {:source_files => log_file, :output => output}
+    options  = {:source_files => log_files, :output => output}
     source   = RequestLogAnalyzer::Source::LogParser.new(@file_format_class, options)
     control  = RequestLogAnalyzer::Controller.new(source, options)
     control.add_filter(:timespan, :after  => last_summary)
@@ -399,15 +413,16 @@ class RailsRequests < Scout::Plugin
     summary.string.strip
   end
   
-  def analyzer_with_newer_rla(last_summary, stop_time, log_file)
+  def analyzer_with_newer_rla(last_summary, stop_time, log_files)
     summary = StringIO.new
     RequestLogAnalyzer::Controller.build(
       :output       => EmbeddedHTML,
       :file         => summary,
       :after        => last_summary, 
       :before       => stop_time,
-      :source_files => log_file,
-      :format       => @file_format_class
+      :source_files => log_files,
+      :format       => @file_format_class,
+      :progress     => nil
     ).run!
     summary.string.strip
   end
@@ -438,6 +453,9 @@ class RailsRequests < Scout::Plugin
 
     file = open(path)
     file.seek(start) if start
+    def file.match(*args)
+      self.path.match *args
+    end
     file
   end
   

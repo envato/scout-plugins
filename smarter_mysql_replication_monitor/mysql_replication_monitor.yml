@@ -1,0 +1,11 @@
+metadata:
+  "Seconds Behind Master":
+    units: seconds
+    precision: 0
+  "Replication Running":
+    precision: 0
+
+triggers:
+  - type: peak
+    dname: "Replication Running"
+    low_value: 0

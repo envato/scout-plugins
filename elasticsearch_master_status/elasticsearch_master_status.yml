@@ -1,0 +1,4 @@
+metadata:
+  number_of_masters:
+    label: Number of master nodes in the cluster
+    precision: "0"

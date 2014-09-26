@@ -53,6 +53,7 @@ class MonitorDelayedJobs < Scout::Plugin
     # Jobs that have permanently failed
     report_hash[:failed]    = DelayedJob.count(:conditions => 'failed_at IS NOT NULL')
     report_hash[:overdue] = DelayedJob.count(:conditions => ['attempts = 0 AND locked_at IS NULL and run_at < ?', Time.now.utc])
+    report_hash[:erroring] = DelayedJob.count(conditions => 'last_error IS NOT NULL AND failed_at IS NULL')
     
     # The oldest job that hasn't yet been run, in minutes
     if oldest = DelayedJob.find(:first, :conditions => [ 'run_at <= ? AND locked_at IS NULL AND attempts = 0', Time.now.utc ], :order => :run_at)

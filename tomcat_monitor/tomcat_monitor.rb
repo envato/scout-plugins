@@ -49,7 +49,6 @@ class TomcatMonitor < Scout::Plugin
         increment_request_comparison(:all, timestamp, duration)
       rescue StandardError => b
         # swallow Exception and keep going
-        p "skipping line: #{line}: #{bang}"
       end
       store_last_date_processed(@last_date_processed, logfile)
     end

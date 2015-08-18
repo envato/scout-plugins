@@ -30,7 +30,7 @@ class MysqlReplicationMonitor < Scout::Plugin
     default:
   ignore_window_end:
     name: Ignore Window End
-    notes: Time to resume alerting on replication failure. For Example,  2:00am
+    notes: Time to resume notifications on replication failure. For Example,  2:00am
     default:
   EOS
 

@@ -20,7 +20,8 @@ metadata:
   util:
     label: Utilization
     precision: 0
-    units: %
+    units: "%"
   aveq:
-    label: Average Queue Size
+    label: "# of I/Os in progress"
     precision: 1
+    units: "/sec"

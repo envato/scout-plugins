@@ -18,6 +18,10 @@ class HaproxyMonitoring < Scout::Plugin
   proxy_type:
     notes: "If multiple proxies have the same name, specify which proxy you want to monitor (ex: 'frontend' or 'backend')."
     attributes: advanced
+  ssl_verify_none:
+    default: false
+    notes: "Specify 'true' to ignore SSL verification errors (e.g. when using a self-signed certificate)."
+    attributes: advanced
   user:
     notes: If protected under basic authentication provide the user name.
   password:
@@ -39,8 +43,11 @@ class HaproxyMonitoring < Scout::Plugin
     end
     found_proxies = []
     possible_proxies = []
+    open_uri_options = {}
+    open_uri_options[:http_basic_authentication] = [option(:user),option(:password)]
+    open_uri_options[:ssl_verify_mode] = OpenSSL::SSL::VERIFY_NONE if option(:ssl_verify_none).to_s.strip == 'true'
     begin
-      FasterCSV.parse(open(option(:uri),:http_basic_authentication => [option(:user),option(:password)]), :headers => true) do |row|
+      FasterCSV.parse(open(option(:uri), open_uri_options), :headers => true) do |row|
         next if proxy_type and proxy_type != row["svname"] # ensure the proxy type (if provided) matches
         possible_proxies << row["# pxname"] # used in error message
         next unless proxy.to_s.strip.downcase == row["# pxname"].downcase # ensure the proxy name matches

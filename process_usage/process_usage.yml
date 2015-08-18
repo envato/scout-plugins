@@ -1,0 +1,37 @@
+metadata:
+  memory:          
+    label: Memory Usage (Largest Process)
+    units: MB
+    precision: 0
+  total_rss:          
+    label: Memory Usage (Total)
+    units: MB
+    precision: 0
+  num_processes:          
+    label: Number of Processes
+    units: ""
+    precision: 0
+  restarts:          
+    label: Restarts
+    units: ""
+    precision: 0
+  cpu:
+    label: CPU Usage (Largest Process)
+    units: "%"
+    precision: 1
+  total_cpu:
+    label: CPU Usage (Total)
+    units: "%"
+    precision: 1
+     
+triggers:
+  - type: peak
+    dname: memory
+    max_value: 300
+  - type: trend
+    dname: memory
+    direction: UP
+    percentage_change: 100
+    duration: 60
+    window_reference: LAST_WEEK
+    min_value: 100

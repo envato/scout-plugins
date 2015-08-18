@@ -9,7 +9,7 @@ class Iostat < Scout::Plugin
   def build_report
     @default_device_used = false
     # determine the device, either from the passed option or by parsing `mount`
-    device = option('device') || default_device
+    device = get_symlinked_device_name(option('device')) || option('device') || default_device
     stats = iostat(device)
     error("Device not found: #{device} -- check your plugin settings.",
           "FYI, mount returns:\n#{`mount`}") and return if !stats
@@ -28,7 +28,7 @@ class Iostat < Scout::Plugin
       ios = (stats['rio'] - old['rio']) + (stats['wio']  - old['wio'])
 
       if ios > 0
-        await = ((stats['ruse'] - old['ruse']) + (stats['wuse'] - old['wuse'])) / ios.to_f
+        await = ((stats['ruse'] - old['ruse']) + (stats['wuse'] - old['wuse'])).abs / ios.to_f
 
         report(:await => await)
       end
@@ -39,7 +39,23 @@ class Iostat < Scout::Plugin
   
   private
   COLUMNS = %w(major minor name rio rmerge rsect ruse wio wmerge wsect wuse running use aveq)
-  
+
+  # If a full path to a device is used, check to see if the device is a symlink to the real device
+  # E.g.  /dev/mapper/some_lvm-volume is really dm-3
+  def get_symlinked_device_name(device)
+    return nil unless device
+    real_device = nil
+    begin
+      if device.start_with?('/') and File.lstat(device).symlink?
+        require 'pathname'
+        real_device = Pathname.new(device).realpath.basename.to_s
+      end
+    rescue
+      # do nothing
+    end
+    return real_device
+  end
+
   # Returns the device mounted at "/"
   def default_device
     @default_device_used = true

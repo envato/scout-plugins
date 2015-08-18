@@ -35,5 +35,18 @@ class DiskUsageTest < Test::Unit::TestCase
       assert_equal 95.0, r[:capacity]
     end
     
-  
+    def test_block_size
+      @plugin=DiskUsage.new(nil,{},{:filesystem=>'/sda6', :command => 'df -B 1G'})
+      @plugin.expects(:`).with("df -B 1G").returns(File.read(File.dirname(__FILE__)+'/fixtures/block_size.txt')).once
+
+      res = @plugin.run()
+      assert res[:errors].empty?
+      assert_equal 4, res[:reports].first.keys.size
+      
+      r = res[:reports].first
+      assert_equal 78.0, r[:available]
+      assert_equal 92.0, r[:"1g-blocks"]
+      assert_equal 9.0, r[:used]
+      assert_equal 11.0, r[:capacity]
+    end
 end

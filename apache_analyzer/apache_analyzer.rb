@@ -22,6 +22,10 @@ class ApacheAnalyzer < Scout::Plugin
     name: Ignored Paths
     notes: Takes a regex. Any URIs matching this regex will be ignored. Matching paths will still be included in daily summaries.
     attributes: advanced
+  perform_daily_analysis:
+    attributes: advanced
+    default: 1
+    notes: 1 = yes, 0 = no
   EOS
 
   needs "elif"
@@ -58,10 +62,12 @@ class ApacheAnalyzer < Scout::Plugin
 
     remember(:last_request_time, @last_request_time || Time.now)
     report(aggregate)
-    if log_path && !log_path.empty?
-      generate_log_analysis(log_path, format)
-    else
-      return error("A path to the Apache log file wasn't provided.","Please provide the full path to the Apache log file to analyze (ie - /var/www/apps/APP_NAME/log/access_log)")
+    if option(:perform_daily_analysis).to_i == 1
+      if log_path && !log_path.empty?
+        generate_log_analysis(log_path, format)
+      else
+        return error("A path to the Apache log file wasn't provided.","Please provide the full path to the Apache log file to analyze (ie - /var/www/apps/APP_NAME/log/access_log)")
+      end
     end
   end
   

@@ -56,7 +56,7 @@ class DiskInodeUsage < Scout::Plugin
     report_data = Hash.new
     
     df_line.each do |name, value|
-      report_data[name.downcase.strip.to_sym] = value
+      report_data[name.downcase.strip.to_sym] = value.to_i
     end
     report(report_data)
   end

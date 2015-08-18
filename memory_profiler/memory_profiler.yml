@@ -9,8 +9,8 @@ metadata:
   Memory Available:
     units: MB
     precision: 0
-  % Memory Used:
-    units: %
+  "% Memory Used":
+    units: "%"
     precision: 0
   Swap Total:
     units: MB
@@ -18,11 +18,11 @@ metadata:
   Swap Used:
     units: MB
     precision: 0
-  % Swap Used:
-    units: %
+  "% Swap Used":
+    units: "%"
     precision: 0
 
 triggers:
   - type: peak
-    dname: % Swap Used
+    dname: "% Swap Used"
     max_value: 50

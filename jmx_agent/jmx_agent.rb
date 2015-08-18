@@ -39,6 +39,12 @@ class JmxAgent < Scout::Plugin
       default: HeapMemoryUsage,NonHeapMemoryUsage@java.lang:type=Memory
       notes: A pipe-delimited list of comma separated attribute names @ MBean name.
       For example: HeapMemoryUsage,NonHeapMemoryUsage@java.lang:type=Memory|Name@java.lang:type=Runtime
+
+    java_command:
+      name: Java Command
+      default: java
+      notes: The Java command to execute. Can be used to specify the
+             full path to Java or to execute under sudo or other wrappers.
   EOS
   
   def to_float?(value)
@@ -87,8 +93,8 @@ class JmxAgent < Scout::Plugin
           end
         end
       end
-    rescue
-      error("Error running JMX command", "Command: #{command}\n\nResult: #{result}")
+    rescue => e
+      error("Error running JMX command", "Command: #{command}\n\nResult: #{result}\n\nException: #{e.message}\n\nBacktrace: #{e.backtrace}")
     end
     values
   end
@@ -108,9 +114,15 @@ class JmxAgent < Scout::Plugin
     end
 
     mbeans_attributes = option(:mbeans_attributes)
-    return error("No MBeans and Attributes Names defined") if mbeans_attributes.empty?
+    return error("No MBeans and Attributes Names defined") if mbeans_attributes.nil? or mbeans_attributes.empty?
 
-    jmx_cmd = "java -jar #{option(:jmxterm_uberjar)} -l #{mbean_server_location} -n -v silent"
+    java_command = option(:java_command)
+    return error("No Java Command defined") if java_command.nil? or java_command.empty?
+
+    jmxterm_uberjar = option(:jmxterm_uberjar)
+    return error("No jmxterm uberjar file defined") if jmxterm_uberjar.nil? or jmxterm_uberjar.empty?
+
+    jmx_cmd = "#{java_command} -jar #{jmxterm_uberjar} -l #{mbean_server_location} -n -v silent"
 
     # validate JVM connectivity
     read_mbean(jmx_cmd, 'java.lang:type=Runtime', 'Name')

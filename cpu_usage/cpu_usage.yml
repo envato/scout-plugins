@@ -1,43 +1,36 @@
 metadata:
   procs_running:
     units: ""
-    larger_is_better: "1"
     delimiter: ","
     precision: "0"
     label: Procs Running
   user:
     units: "%"
-    larger_is_better: "1"
     delimiter: ","
     precision: "1"
-    label: User
   procs_blocked:
     units: ""
-    larger_is_better: "1"
     delimiter: ","
     precision: "0"
     label: Procs Blocked
   system:
     units: "%"
-    larger_is_better: "1"
     delimiter: ","
     precision: "1"
-    label: System
   interrupts:
     units: /sec
-    larger_is_better: "1"
     delimiter: ","
     precision: "1"
-    label: Interrupts
   iowait:
     units: "%"
-    larger_is_better: "1"
     delimiter: ","
     precision: "1"
     label: IO Wait
   idle:
     units: "%"
-    larger_is_better: "1"
     delimiter: ","
     precision: "1"
-    label: Idle
+  steal:
+    units: "%"
+    delimiter: ","
+    precision: "1"

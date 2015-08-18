@@ -1,0 +1,9 @@
+metadata:
+  workers:
+    precision: 0
+  avg_rt:
+    label: ms
+  rss:
+    label: MB
+  vsz:
+    label: MB

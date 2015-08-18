@@ -1,11 +1,11 @@
 metadata:
   CPUUtilization max:
     label: CPU Utilization (max)
-    units: %
+    units: "%"
     precision: 2
   CPUUtilization avg:
     label: CPU Utilization (avg)
-    units: %
+    units: "%"
     precision: 2
   NetworkIn max:
     label: Network In (max)

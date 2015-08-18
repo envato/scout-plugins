@@ -1,9 +1,14 @@
 require 'test/unit'
 require 'rubygems'
-require 'mocha'     # gem install mocha
+require 'mocha/test_unit'     # gem install mocha
 require 'fakeweb'   # gem install fakeweb
 require 'timecop'   # gem install timecop
 require 'scout'
+begin
+  require 'pry'
+rescue LoadError
+  # not using pry
+end
 
 class Test::Unit::TestCase
   # Reads the code and extracts default options. The argument should be the name of

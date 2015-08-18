@@ -21,6 +21,15 @@ class GenericJsonUri < Scout::Plugin
       response = open(option(:url)).read
     end
     obj = JSON.parse(response)
+    
+    if obj.is_a?(Array)
+      out = {}
+      obj.each do |item|
+        out.merge!(item)
+      end
+      obj = out
+    end
+    
     report(obj)
   rescue Exception => e
     return error("Error getting JSON", e.message)

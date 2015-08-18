@@ -1,0 +1,6 @@
+metadata:
+  heap:
+    units: "mb"
+    delimiter: ","
+    precision: 2
+    label: java heap size (mb)

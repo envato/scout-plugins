@@ -9,7 +9,7 @@ metadata:
     precision: 0
   capacity:
     label: Disk Capacity
-    units: %
+    units: "%"
     precision: 0
   avail:
     label: Disk Space Available

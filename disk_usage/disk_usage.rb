@@ -82,8 +82,7 @@ class DiskUsage < Scout::Plugin
     # remove 'filesystem' and 'mounted on' if present - these don't change. 
     df_line.reject! { |name,value| ['filesystem','mounted on'].include?(name.downcase.gsub(/\n/,'')) }  
       
-    # capacity on osx = Use% on Linux ... convert anything that isn't size, used, or avail to capacity ... a big assumption?
-    assumed_capacity = df_line.find { |name,value| !['size','used','avail'].include?(name.downcase.gsub(/\n/,''))}
+    assumed_capacity = df_line.find { |name,value| /capacity|use.*%|%.*use/ === name.downcase.gsub(/\n/,'') }
     df_line.delete(assumed_capacity.first)
     df_line['capacity'] = assumed_capacity.last
     

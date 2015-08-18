@@ -1,0 +1,10 @@
+metadata:
+  memory:          
+    units: MB
+    precision: 0
+  containers:
+    precision: 0
+  cpu:
+    label: 'CPU Usage'
+    units: '%'
+    precision: 1

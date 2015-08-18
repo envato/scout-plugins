@@ -29,5 +29,13 @@ class PuppetLastRunTest < Test::Unit::TestCase
     result = plugin.run
     assert result[:errors].any?
   end
+
+  def test_with_empty_file
+    plugin=PuppetLastRun.new(nil,{},{:recent_runs_file => File.expand_path('../fixtures/empty.yaml', __FILE__)})
+    result = plugin.run
+    report = result[:reports].first
+    assert result[:errors].empty?
+    assert_equal 1, report.size
+  end
   
 end

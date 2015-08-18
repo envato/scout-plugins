@@ -1,0 +1,21 @@
+metadata: 
+  active_nfs_conn: 
+    label: Active NFS Connections
+    precision: "0"
+  running: 
+    precision: "0"
+  sleeping: 
+    precision: "0"
+  paging: 
+    precision: "0"
+  total: 
+    precision: "0"
+  zombie: 
+    precision: "0"
+  trace_or_stop: 
+    precision: "0"
+  waiting_disk: 
+    label: Waiting on Disk
+    precision: "0"
+  unknown: 
+    precision: "0"

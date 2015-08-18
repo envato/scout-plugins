@@ -1,6 +1,6 @@
 Monitors for slow MongoDB queries and generates an alert (containing the queries) whey they occur.
 
-The plugin has two options, the database and a threshold for slow query times
+The plugin has three options, the database, a threshold for slow query times, and SSL enable/disable
 
 It automatically sets the profiling level of the named database to slow_queries only or above.
 

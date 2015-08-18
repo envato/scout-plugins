@@ -1,24 +1,33 @@
 metadata:
   status:
-    label: The status of the cluster
+    label: Status
+    precision: "0"
   number_of_nodes:
-    label: Number of nodes in the cluster
+    label: Nodes (total)
     precision: "0"
   number_of_data_nodes:
-    label: Number of data nodes in the cluster
+    label: Nodes (data)
     precision: "0"
   active_primary_shards:
-    label: Number of active primary shards
+    label: Shards (active primary)
     precision: "0"
   active_shards:
-    label: Number of active shards
+    label: Shards (active)
     precision: "0"
   relocating_shards:
-    label: Number of relocating shards
+    label: Shards (relocating)
     precision: "0"
   initializing_shards:
-    label: Number of initializing shards
+    label: Shards (initializing)
     precision: "0"
   unassigned_shards:
-    label: Number of unassigned shards
+    label: Shards (unassigned)
     precision: "0"
+  query_rate:
+    label: Query Throughput
+    precision: 1
+    units: "/sec"
+  query_time:
+    label: Query Reponse Time
+    precision: "1"
+    units: ms

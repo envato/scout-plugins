@@ -1,4 +1,4 @@
-source :rubygems
+source 'https://rubygems.org'
 
 # for tests
 group :test do
@@ -6,11 +6,13 @@ group :test do
   gem 'fakeweb'
   gem 'mocha'
   gem 'timecop'
+  gem 'pry'
+  gem 'pry-doc'
 end
 
 # plugin-specific
 gem 'pg'
-gem 'mysql'
+gem 'mysql2'
 gem 'mongo'
 gem 'request-log-analyzer'
 gem 'beanstalk-client'
@@ -18,6 +20,5 @@ gem 'facets'
 gem 'redis'
 gem 'resque'
 gem 'nokogiri'
-gem 'mysql'
-gem 'mongo'
 gem 'memcache-client'
+gem 'sidekiq'

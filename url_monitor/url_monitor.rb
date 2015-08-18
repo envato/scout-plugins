@@ -20,6 +20,20 @@ class UrlMonitor < Scout::Plugin
     name: Timeout Length
     notes: "Seconds to wait until connection is opened."
     attributes: advanced
+  request_method:
+    default: 'HEAD'
+    name: Request Method
+    notes: "The method of the request sent to the url. Options are 'GET', 'HEAD' or 'POST'. Defaults to 'HEAD'."
+    attributes: advanced
+  request_body_type:
+    default: 'application/x-www-form-urlencoded'
+    name: Request Body Type
+    notes: "The Type that is used while sending a POST. Defaults to application/x-www-form-urlencoded."
+    attributes: advanced
+  request_body_content:
+    name: Request Body Content
+    notes: "The Body that is send along in the Request, for example during a POST"
+    attributes: advanced
   EOS
 
   def build_report
@@ -37,7 +51,7 @@ class UrlMonitor < Scout::Plugin
       response = http_response(url)
     end
 
-    report(:status => response.class.to_s[/^Net::HTTP(.*)$/, 1],
+    report(:status => (response.is_a?(String) ? nil : response.code.to_i),
            :response_time => response_time)
 
     is_up = valid_http_response?(response) ? 1 : 0
@@ -58,7 +72,7 @@ class UrlMonitor < Scout::Plugin
           alert( "The URL [#{url}] is responding again",
                  "URL: #{url}\n\nStatus: #{response.class.to_s[/^Net::HTTP(.*)$/, 1]}. " +
                  "Was unresponsive for #{(Time.now - memory(:down_at)).to_i} seconds")
-        else
+        elsif @last_run
           alert( "The URL [#{url}] is responding",
                  "URL: #{url}\n\nStatus: #{response.class.to_s[/^Net::HTTP(.*)$/, 1]}. ")
         end
@@ -83,6 +97,7 @@ class UrlMonitor < Scout::Plugin
 
     response = nil
     retry_url_execution_expired = true
+    retry_url_trailing_slash = true
     begin
       connect_host = option('host_override').to_s.strip
       connect_host = uri.host if connect_host.empty?
@@ -92,7 +107,22 @@ class UrlMonitor < Scout::Plugin
       http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       http.open_timeout = option('timeout_length').to_i
       http.start(){|h|
-            req = Net::HTTP::Head.new((uri.path != '' ? uri.path : '/' ) + (uri.query ? ('?' + uri.query) : ''))
+            path_and_query = (uri.path != '' ? uri.path : '/') + (uri.query ? ('?' + uri.query) : '')
+            if(option('request_method').to_s.upcase.strip == 'GET')
+              req = Net::HTTP::Get.new(path_and_query)
+            elsif(option('request_method').to_s.upcase.strip == 'POST')
+              if(option('request_body_type'))
+                  request_body_type = option('request_body_type')
+              else
+                  request_body_type = 'application/x-www-form-urlencoded'
+              end
+              req = Net::HTTP::Post.new(path_and_query, {'Content-Type' => request_body_type})
+            else
+              req = Net::HTTP::Head.new(path_and_query)
+            end
+            if(req.request_body_permitted? and option('request_body_content'))
+                req.body = option('request_body_content')
+            end
             req['User-Agent'] = "ScoutURLMonitor/#{Scout::VERSION}"
             req['host'] = uri.host
             if uri.user && uri.password

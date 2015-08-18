@@ -1,3 +1,7 @@
 metadata:
   processes_present:
+    label: Unique Processes
+    precision: 0
+  total_processes_present:
+    label: Total Processes
     precision: 0

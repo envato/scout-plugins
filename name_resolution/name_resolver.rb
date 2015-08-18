@@ -23,4 +23,3 @@ class NameResolver < Scout::Plugin
     end
   end
 end
-

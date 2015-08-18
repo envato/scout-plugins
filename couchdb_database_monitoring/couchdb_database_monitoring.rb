@@ -10,9 +10,16 @@ class CouchDBDatabaseMonitoring < Scout::Plugin
       default: http://127.0.0.1
     database_name:
       notes: The name of the database you wish to get stats for
+    couchdb_user:
+      notes: The CouchDB http basic authentication user
+      attributes: advanced
+    couchdb_pwd:
+      name: CouchDB Password
+      notes: The CouchDB http basic authentication password
+      attributes: advanced,password
   EOS
 
-  needs 'net/http', 'json'
+  needs 'net/http', 'json', 'open-uri'
 
   def build_report
     if option(:couchdb_host).nil? or option(:couchdb_port).nil? or option(:database_name).nil?
@@ -21,7 +28,10 @@ class CouchDBDatabaseMonitoring < Scout::Plugin
     
     base_url = "#{option(:couchdb_host)}:#{option(:couchdb_port)}/"
 
-    response = JSON.parse(Net::HTTP.get(URI.parse(base_url + option(:database_name))))
+    options = {}
+    options[:http_basic_authentication] = [option(:couchdb_user), option(:couchdb_pwd)] if option(:couchdb_user)
+    json_response=open(base_url + option(:database_name), options).read
+    response = JSON.parse(json_response)
     report(:doc_count => response['doc_count'] || 0)
     report(:doc_del_count => response['doc_del_count'] || 0)
     report(:disk_size => b_to_mb(response['disk_size']) || 0)

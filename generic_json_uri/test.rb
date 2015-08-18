@@ -15,4 +15,15 @@ class GenericJsonUriTest < Test::Unit::TestCase
     assert_equal 1, r["foo"]
     assert_equal 2, r["bar"]
   end
+  
+  def test_array
+    @plugin=GenericJsonUri.new(nil,{},{:url=>File.expand_path(File.expand_path('../fixtures/array_test.json', __FILE__))})
+    res = @plugin.run()
+    assert res[:errors].empty?
+    assert_equal 3, res[:reports].first.keys.size
+
+    r = res[:reports].first
+    assert_equal 3, r["users"]
+    assert_equal 4, r["items"]
+  end
 end

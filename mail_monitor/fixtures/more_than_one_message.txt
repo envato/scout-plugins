@@ -1,0 +1,10 @@
+-Queue ID- --Size-- ----Arrival Time---- -Sender/Recipient-------
+6D998129401      371 Wed Apr 22 16:20:53  dbrown@C02PJ00LG3QP.localdomain
+(Host or domain name not found. Name service error for name=gmail.com type=MX: Host not found, try again)
+                                         dustinjamesbrown@gmail.com
+
+89E3D12941B      371 Wed Apr 22 16:21:04  dbrown@C02PJ00LG3QP.localdomain
+(Host or domain name not found. Name service error for name=gmail.com type=MX: Host not found, try again)
+                                         dustinjamesbrown@gmail.com
+
+-- 1 Kbytes in 2 Requests.

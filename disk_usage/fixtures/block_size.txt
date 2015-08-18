@@ -1,0 +1,8 @@
+Filesystem     1G-blocks  Used Available Use% Mounted on
+/dev/sda6             92     9        78  11% /
+none                   1     0         1   0% /sys/fs/cgroup
+udev                   4     1         4   1% /dev
+tmpfs                  1     1         1   1% /run
+none                   1     0         1   0% /run/lock
+none                   4     1         4   1% /run/shm
+none                   1     1         1   1% /run/user

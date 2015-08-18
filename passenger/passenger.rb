@@ -36,6 +36,7 @@ class PassengerStats < Scout::Plugin
 
     stats = {}
 
+    # Passenger < 4 and passenger >= 4 report different stats. This loop extracts both formats.
     data.each_line do |line|
       if line =~ /^max\s+=\s(\d+)/
         stats["passenger_max_pool_size"] = $1
@@ -46,6 +47,12 @@ class PassengerStats < Scout::Plugin
       elsif line =~ /^inactive\s+=\s(\d+)/
         stats["passenger_process_inactive"] = $1
       elsif line =~ /^Waiting on global queue: (\d+)/
+        stats["passenger_queue_depth"] = $1
+      elsif line =~ /^Max pool size +: (\d+)/ # passenger 4
+        stats["passenger_max_pool_size"] = $1
+      elsif line =~ /^Processes  +: (\d+)/   # passenger 4
+        stats["passenger_process_current"] = $1
+      elsif line =~ /^Requests in top-level queue +: (\d+)/   # passenger 4
         stats["passenger_queue_depth"] = $1
       end
     end

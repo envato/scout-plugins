@@ -14,6 +14,7 @@ class LoadAverages < Scout::Plugin
   EOS
 
    def build_report
+     ENV['LANG'] = 'C' # forcing english for parsing
      if `uptime` =~ /load average(s*): ([\d.]+)(,*) ([\d.]+)(,*) ([\d.]+)\Z/
        report :last_minute          => $2.to_f/num_processors,
               :last_five_minutes    => $4.to_f/num_processors,

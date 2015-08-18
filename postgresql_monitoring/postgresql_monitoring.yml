@@ -45,7 +45,7 @@ metadata:
     precision: 1
   blks_cache_pc:
     label: Buffer cache hit rate
-    units: %
+    units: "%"
     precision: 1
   numbackends:
     label: Active backends

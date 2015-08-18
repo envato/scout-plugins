@@ -1,0 +1,4 @@
+metadata:
+  days_left:
+    label: Days left until expired
+    precision: 0

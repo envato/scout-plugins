@@ -1,0 +1,3 @@
+yellow open test_index 1 1  8875 0 12.5mb 12.5mb 
+yellow open .marvel-2014.12.08 1 1  1394 0  6.7mb  6.7mb 
+yellow open .marvel-2014.12.03 1 1 10519 0 14.4mb 14.4mb

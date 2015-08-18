@@ -156,7 +156,11 @@ class SphinxMonitor < Scout::Plugin
            else
              :intermediate
            end
-    LogData.new(Time.parse(time), step)
+    begin
+      LogData.new(Time.parse(time), step)
+    rescue ArgumentError # time is not a time. the line is not formatted correctly
+      return nil
+    end
   end
 
 end

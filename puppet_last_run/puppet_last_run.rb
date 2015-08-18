@@ -37,15 +37,19 @@ EOS
       last_exit_code = data.last || 4
       report(:success => (last_exit_code <= 2) ? 1 : 0)
     else
+      metrics = {}
       minutes_since_last_run = (Time.now.to_i - data['time']['last_run'])/60 if (data['time'] and data['time']['last_run'])
-      report(
-        :events_total => data['events']['total'],
-        :events_failure => data['events']['failure'],
-        :resources_total => data['resources']['total'],
-        :resources_failure => data['resources']['failed'],
-        :changes_total => data['changes']['total'],
-        :minutes_since_last_run => minutes_since_last_run
-      )
+      if data['events']
+        metrics.merge!(:events_total => data['events']['total'],:events_failure => data['events']['failure'])
+      end
+      if data['resources']
+        metrics.merge!(:resources_total => data['resources']['total'],:resources_failure => data['resources']['failed'])
+      end
+      if data['changes']
+        metrics.merge!(:changes_total => data['changes']['total'])
+      end
+      metrics.merge!(:minutes_since_last_run => minutes_since_last_run)
+      report(metrics)
     end
   end
 end

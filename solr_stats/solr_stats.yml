@@ -1,0 +1,13 @@
+metadata:
+  avg_rate:
+    label: req/sec
+  5_min_rate:
+    label: req/sec
+  15_min_rate:
+    label: req/sec
+  avg_time_per_request:
+    label: ms
+  median_request_time:
+    label: ms
+  95th_pc_request_time:
+    label: ms

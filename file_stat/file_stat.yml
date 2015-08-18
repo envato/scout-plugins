@@ -1,0 +1,83 @@
+metadata: 
+  status:
+    delimiter: ""
+    precision: "0"
+    label: status
+  ctime:
+    delimiter: ""
+    precision: "0"
+    label: ctime
+  ctime_diff:
+    delimiter: ""
+    precision: "0"
+    label: ctime diff
+  mtime:
+    delimiter: ""
+    precision: "0"
+    label: mtime
+  mtime_diff:
+    delimiter: ""
+    precision: "0"
+    label: mtime diff
+  atime:
+    delimiter: ""
+    precision: "0"
+    label: atime
+  atime_diff:
+    delimiter: ""
+    precision: "0"
+    label: atime diff
+  blksize:
+    delimiter: ""
+    precision: "0"
+    label: blksize
+  blocks:
+    delimiter: ""
+    precision: "0"
+    label: blocks
+  dev:
+    delimiter: ""
+    precision: "0"
+    label: dev
+  ftype:
+    delimiter: ""
+    precision: "0"
+    label: ftype
+  gid:
+    delimiter: ""
+    precision: "0"
+    label: gid
+  ino:
+    delimiter: ""
+    precision: "0"
+    label: inode
+  mode:
+    units: ""
+    delimiter: ""
+    precision: "0"
+    label: mode
+  nlink:
+    delimiter: ","
+    precision: "0"
+    label: nlinks
+  setgid:
+    delimiter: ""
+    precision: "0"
+    label: setgid
+  setuid:
+    delimiter: ""
+    precision: "0"
+    label: setuid
+  size:
+    units: "bytes"
+    delimiter: ","
+    precision: "0"
+    label: size
+  sticky:
+    delimiter: ""
+    precision: "0"
+    label: sticky
+  uid:
+    delimiter: ""
+    precision: "0"
+    label: uid

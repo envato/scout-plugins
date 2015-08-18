@@ -1,0 +1,15 @@
+metadata:
+  synced:
+    label: Synced Status
+  streaming:
+    label: Streaming Status
+  archive_mode:
+    label: Archive Mode
+  sent_location:
+    label: Primary Log Sent Location
+  standby_receive_location:
+    label: Standy Log Receive Location
+  replication_delay:
+    label: Replication Delay
+    units: seconds
+    precision: 1

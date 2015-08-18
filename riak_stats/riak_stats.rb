@@ -1,3 +1,5 @@
+# Copyright (c) 2014 Goldstar Events, Inc.
+# Patrick O'Brien (pobrien@goldstar.com)
 # Copyright (c) 2011 Mad Mimi, LLC
 # Marc Heiligers (marc@madmimi.com)
 # 
@@ -15,31 +17,56 @@
 # IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
 # WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 class RiakStats < Scout::Plugin
   needs 'net/http'
+  needs 'resolv'
   needs 'json'
   
   OPTIONS = <<-EOF
-    stats_collection:
-      default: pbc_active,pbc_connects,coord_redirs_total,executing_mappers,node_gets,node_get_fsm_time_95,node_get_fsm_time_99,node_get_fsm_time_100,node_puts,node_put_fsm_time_95,node_put_fsm_time_99,node_put_fsm_time_100,vnode_puts,vnode_gets,vnode_index_reads,vnode_index_writes,vnode_index_writes_postings,vnode_index_deletes,vnode_index_deletes_postings,read_repairs
-      name: Stats to collect
-      notes: A comma separated list of the stats to collect. This has a maximum of 20 entries, additional entries will be ignored. 
-    stats_url:
-      default: 'http://localhost:8098/stats'
-      name: Stats URL
-      notes: The url that the plugin will hit to get the JSON stats document from Riak.
+    use_dns_hostname:
+      default: false
+      name: Lookup Stats IP From DNS
+      notes: Use the IP found in DNS (rather than what is found in /etc/hosts).
+    stats_port:
+      default: '8098'
+      name: Stats Port
+      notes: The port that will be queried for JSON formatted stats.
+    stats_path:
+      default: 'stats'
+      name: Stats Path
+      notes: The path for the stats endpoint.
+    stats:
+      default:
+      name: Stats to Collect
+      notes: A comma separated list of the stats to collect. This has a maximum of 20 entries, additional entries will be ignored.
   EOF
   
   def build_report
-    response = Net::HTTP.get_response URI.parse(option(:stats_url))
-    json = JSON.parse response.body
-    
-    result = {}
-    option(:stats_collection).split(',')[0..19].map(&:strip).each do |name|
-      result[name] = json[name] if json[name]
+    # quick check to make sure we have at least one stat defined.
+    if option(:stats).nil?
+      return "at least one stat is required for this plugin."
     end
-    
+
+    fqdn       = `hostname -f`.strip
+    stats_host = get_stats_host(fqdn)
+    stats_url  = "http://#{stats_host}:#{option(:stats_port)}/#{option(:stats_path)}"
+    response   = Net::HTTP.get_response URI.parse(stats_url)
+    raw_stats  = JSON.parse(response.body)
+    result     = {}
+
+    option(:stats).split(',')[0..19].map(&:strip).each do |stat|
+      result[stat] = raw_stats[stat] if raw_stats[stat]
+    end
+
     report result
   end
-    
+
+  def get_stats_host(fqdn)
+    if option(:use_dns_hostname) == "true"
+      return Resolv::DNS.new("/etc/resolv.conf").getaddress(fqdn).to_s
+    else
+      return fqdn
+    end
+  end
 end

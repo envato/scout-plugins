@@ -9,7 +9,7 @@ metadata:
     precision: 0
   disk_capacity:
     label: Disk Capacity
-    units: %
+    units: "%"
     precision: 0
   disk_avail:
     label: Disk Space Available
@@ -32,8 +32,8 @@ metadata:
     units: MB
     precision: 0
   mem_used_percent:
-    label: % Memory Used
-    units: %
+    label: "% Memory Used"
+    units: "%"
     precision: 0
   mem_swap_total:
     lable: Swap Total
@@ -44,8 +44,8 @@ metadata:
     units: MB
     precision: 0
   mem_swap_percent:
-    label: % Swap Used
-    units: %
+    label: "% Swap Used"
+    units: "%"
     precision: 0
 
 

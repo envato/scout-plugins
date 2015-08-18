@@ -1,0 +1,13 @@
+metadata:
+  buffer_pool_size:
+    units: MB
+    precision: 2
+  buffer_pool_capacity:
+    precision: 2
+  buffer_pool_pages_free:
+    precision: 0
+  page_size:
+    units: KB
+    precision: 2
+  write_percentage:
+    precision: 2

@@ -1,0 +1,14 @@
+metadata:
+  error:
+    precision: 0
+  query_time:
+    label: Query Time
+    units: ms
+    precision: 0
+  hits:
+    precision: 0
+  status_code:
+    label: Status Code
+    precision: 0
+
+

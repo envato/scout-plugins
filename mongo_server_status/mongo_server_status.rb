@@ -1,67 +1,67 @@
 $VERBOSE=false
 class MongoServerStatus < Scout::Plugin
   OPTIONS=<<-EOS
-    path_to_db_yml:
-      name: Path to database.yml
-      notes: "If a database.yml file exists with MongoDB connection information, provide the full path here. Otherwise, you can enter the settings manually by clicking on the 'show advanced options' link below."
-    rails_env:
-      name: Rails Environment
-      default: production
-      notes: "If a database.yml exists, specify the Rails environment that should be used. If you aren't using a database.yml file, you can enter the settings manually by clicking on the 'show advanced options' link below."
     host:
       name: Mongo Server
-      notes: Where mongodb is running. If a database.yml file is used, the yml settings will override this.
+      notes: Where mongodb is running.
       default: localhost
-      attributes: advanced
     username:
-      notes: Leave blank unless you have authentication enabled. If a database.yml file is used, the yml settings will override this.
-      attributes: advanced
+      notes: Leave blank unless you have authentication enabled.
     password:
-      notes: Leave blank unless you have authentication enabled. If a database.yml file is used, the yml settings will override this.
-      attributes: advanced,password
+      notes: Leave blank unless you have authentication enabled.
+      attributes: password
     port:
       name: Port
       default: 27017
-      notes: MongoDB standard port is 27017. If a database.yml file is used, the yml settings will override this.
+      notes: MongoDB standard port is 27017.
+    ssl:
+      name: SSL
+      default: false
+      notes: Specify 'true' if your MongoDB is using SSL for client authentication.
+      attributes: advanced
+    connect_timeout:
+      name: Connect Timeout
+      notes: The number of seconds to wait before timing out a connection attempt.
+      default: 30
+      attributes: advanced
+    op_timeout:
+      name: Operation Timeout
+      notes: The number of seconds to wait for a read operation to time out. Disabled by default.
       attributes: advanced
   EOS
 
   needs 'mongo', 'yaml'
 
-  def build_report 
-    # check if database.yml path provided
-    if option('path_to_db_yml').nil?
-      @db_yml = false
-      # check if options provided
-      @host     = option('host') 
-      @port     = option('port')
-      if [@host,@port].compact.size < 2
-        return error("Connection settings not provided.", "Either the full path to the MongoDB database file (ie - /var/www/apps/APP_NAME/current/config/database.yml) or the host and port must be provided in the advanced settings.")
-      end
-      @username = option('username')
-      @password = option('password')
-    else
-      @db_yml = true
-    end
-    
-    # check if database.yml loads
-    if @db_yml
-      begin
-        yaml = YAML::load_file(option('path_to_db_yml'))
-      rescue Errno::ENOENT
-        return error("Unable to find the database.yml file", "Could not find a MongoDB config file at: #{option(:path_to_db_yml)}. Please ensure the path is correct.")
-      end
-      config = yaml[option('rails_env')]
-      @host     = config['host']
-      @port     = config['port']
-      @username = config['username']
-      @password = config['password'] 
-    end
+  def option_to_f(op_name)
+    opt = option(op_name)
+    opt.nil? ? opt : opt.to_f
+  end
 
+  def build_report 
+    # check if options provided
+    @host     = option('host') 
+    @port     = option('port')
+    @ssl      = option("ssl").to_s.strip == 'true'
+    if [@host,@port].compact.size < 2
+      return error("Connection settings not provided.", "The host and port must be provided in the advanced settings.")
+    end
+    @username = option('username')
+    @password = option('password')
+    @connect_timeout = option_to_f('connect_timeout')
+    @op_timeout      = option_to_f('op_timeout')
+    
+    if(Mongo::constants.include?(:VERSION) && Mongo::VERSION.split(':').first.to_i >= 2)
+      get_server_status_v2
+    else
+      get_server_status_v1
+    end
+  end
+
+  def get_server_status_v1
     begin
-      connection = Mongo::Connection.new(@host,@port,:slave_ok=>true)
+      connection = Mongo::Connection.new(@host,@port,:ssl=>@ssl,:slave_ok=>true,:connect_timeout=>@connect_timeout,:op_timeout=>@op_timeout)
     rescue Mongo::ConnectionFailure
-      return error("Unable to connect to the MongoDB Daemon.","Please ensure it is running on #{@host}:#{@port}\n\nException Message: #{$!.message}")
+      return error("Unable to connect to the MongoDB Daemon.","Please ensure it is running on #{@host}:#{@port}\n\nException Message: #{$!.message}. Also confirm if SSL should be enabled or disabled.")
     end
     
     # Try to connect to the database
@@ -72,12 +72,20 @@ class MongoServerStatus < Scout::Plugin
       return error("Unable to authenticate to MongoDB Database.",$!.message)
     end
     
-    get_server_status
+    stats = @admin_db.command('serverStatus' => 1)
+    get_server_status(stats)
+  end
+
+  def get_server_status_v2
+    client = Mongo::Client.new(["#{@host}:#{@port}"], :database => 'admin', :ssl => @ssl, :connection_timeout => @connect_timeout, :socket_timeout => @op_timeout, :server_selection_timeout => 1, :connect => :direct)
+    client = client.with(user: @username, password: @password) unless @username.nil?
+    stats = client.database.command(:serverStatus => 1).first
+    get_server_status(stats)
+  rescue Mongo::Error::NoServerAvailable
+    return error("Unable to connect to the MongoDB Daemon.","Please ensure it is running on #{@host}:#{@port}\n\nException Message: #{$!.message}, also confirm if SSL should be enabled or disabled.")
   end
   
-  def get_server_status
-    stats = @admin_db.command('serverStatus' => 1)
-    
+  def get_server_status(stats)
     if stats['indexCounters'] and stats['indexCounters']['btree']
       counter(:btree_accesses, stats['indexCounters']['btree']['accesses'], :per => :second)
     

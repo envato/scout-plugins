@@ -8,6 +8,7 @@ class RailsRequestsTest < Test::Unit::TestCase
     @options=parse_defaults("rails_requests")
     @log = File.dirname(__FILE__)+"/log/production_rails_2_3.log"
     @rails3_log = File.dirname(__FILE__)+"/log/production_rails_3_0.log"
+    @rails4_log = File.dirname(__FILE__)+"/log/production_rails_4_1.log"
     @rails2_oink_log = File.dirname(__FILE__)+"/log/production_rails_oink_2_2.log"
   end
 
@@ -97,6 +98,30 @@ class RailsRequestsTest < Test::Unit::TestCase
     assert_equal 0, res[:alerts].size
   end
 
+  def test_run_rails_4
+    plugin=RailsRequests.new(nil,{:last_request_time=>Time.parse("2010-04-26 00:00:00")},@options.merge(:log => @rails4_log, :rails_version => '4'))
+    res=plugin.run
+    assert_equal "1.31", res[:reports].first[:average_request_length]
+    assert_equal "0.02", res[:reports].first[:average_db_time]
+    assert_equal "0.21", res[:reports].first[:average_view_time] 
+  end
+
+  def test_run_with_slow_request_rails_4
+    plugin=RailsRequests.new(nil,{:last_request_time=>Time.parse("2010-04-26 00:00:00")},@options.merge(:log => @rails4_log, :max_request_length=>2, :rails_version => '4'))
+    res=plugin.run
+    assert_equal 10, res[:reports].first[:slow_requests_percentage]
+    assert_equal 1, res[:alerts].size
+    assert_equal "Maximum Time(2 sec) exceeded on 1 request",res[:alerts].first[:subject]
+    assert_equal "/home\nCompleted in 6.0s (View: 2.1s, DB: 0.2s) | Status: 200\n\n", res[:alerts].first[:body]
+  end
+
+  def test_ignored_slow_request_rails_4
+    plugin=RailsRequests.new(nil,{:last_request_time=>Time.parse("2010-04-26 00:00:00")},@options.merge(:log => @rails4_log, :max_request_length=>2, :ignored_actions=>'home', :rails_version => '4'))
+    res=plugin.run
+    assert_equal 0, res[:reports].first[:slow_requests_percentage]
+    assert_equal 0, res[:alerts].size
+  end
+
   def test_wrong_log_path
     plugin=RailsRequests.new(nil,{:last_request_time=>Time.parse("2010-04-26 00:00:00")},@options.merge(:log => "BOGUS"))
     res=plugin.run
@@ -111,7 +136,5 @@ class RailsRequestsTest < Test::Unit::TestCase
     assert_equal 0, res[:errors].size, res.to_yaml
     assert_equal 0, res[:alerts].size
   end
-
-
 
 end

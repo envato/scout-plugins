@@ -13,6 +13,9 @@ class MonitorDelayedJobs < Scout::Plugin
   queue_name:
     name: Queue Name
     notes: If specified, only gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues. Not supported with ActiveRecord 2.x. Default is nil
+  excluded_queue_name
+    name: Excluded Queue Name
+    notes: If specified, do not gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless queue_name specified. Not supported with ActiveRecord 2.x. Default is nil. DO NOT USE together with queue name.
   EOS
 
   needs 'active_record', 'yaml', 'erb'
@@ -65,6 +68,11 @@ class MonitorDelayedJobs < Scout::Plugin
       if option(:queue_name)
         query_hash.keys.each do |key|
           query_hash[key] = query_hash[key].where('queue = ?', option(:queue_name))
+        end
+      end
+      if option(:excluded_queue_name)
+        query_hash.keys.each do |key|
+          query_hash[key] = query_hash[key].where('queue <> ?', option(:excluded_queue_name))
         end
       end
     else

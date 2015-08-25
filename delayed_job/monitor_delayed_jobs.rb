@@ -13,7 +13,7 @@ class MonitorDelayedJobs < Scout::Plugin
   queue_name:
     name: Queue Name
     notes: If specified, only gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues. Not supported with ActiveRecord 2.x. Default is nil
-  exclude_queue_name
+  exclude_queue_name:
     name: Exclude Queue Name
     notes: If specified, do not gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless queue_name specified. Not supported with ActiveRecord 2.x. Default is nil.
   EOS
@@ -77,20 +77,46 @@ class MonitorDelayedJobs < Scout::Plugin
       end
     else
       # ActiveRecord 2.x compatible
+      queue_filter_sql = ""
+      queue_filter_params = nil
+      if option(:queue_name)
+        queue_filter_sql = " and queue = ?"
+        queue_filter_params = option(:queue_name)
+      end
+      if option(:exclude_queue_name)
+        queue_filter_sql = " and ( queue <> ? or queue IS NULL )"
+        queue_filter_params = option(:exclude_queue_name)
+      end
       # All jobs
-      query_hash[:total]     = DelayedJob
+      if queue_filter_params
+        query_hash[:total]    = DelayedJob.find(:all, :conditions => [queue_filter_sql.gsub(" and ",""),queue_filter_params])
+      else
+        query_hash[:total]    = DelayedJob
+      end
       # Jobs that are currently being run by workers
-      query_hash[:running]   = DelayedJob.find(:all, :conditions => 'locked_at IS NOT NULL AND failed_at IS NULL')
+      conditions = ["locked_at IS NOT NULL AND failed_at IS NULL #{queue_filter_sql}"]
+      conditions << queue_filter_params if queue_filter_params
+      query_hash[:running]   = DelayedJob.find(:all, :conditions => conditions)
       # Jobs that are ready to run but haven't ever been run
-      query_hash[:waiting]   = DelayedJob.find(:all, :conditions => ['run_at <= ? AND locked_at IS NULL AND attempts = 0', Time.now.utc])
+      conditions = ["run_at <= ? AND locked_at IS NULL AND attempts = 0 #{queue_filter_sql}", Time.now.utc]
+      conditions << queue_filter_params if queue_filter_params
+      query_hash[:waiting]   = DelayedJob.find(:all, :conditions => conditions)
       # Jobs that haven't ever been run but are not set to run until later
-      query_hash[:scheduled] = DelayedJob.find(:all, :conditions => ['run_at > ? AND locked_at IS NULL AND attempts = 0', Time.now.utc])
+      conditions = ["run_at > ? AND locked_at IS NULL AND attempts = 0 #{queue_filter_sql}", Time.now.utc]
+      conditions << queue_filter_params if queue_filter_params
+      query_hash[:scheduled] = DelayedJob.find(:all, :conditions => conditions)
       # Jobs that aren't running that have failed at least once
-      query_hash[:failing]   = DelayedJob.find(:all, :conditions => 'attempts > 0 AND failed_at IS NULL AND locked_at IS NULL')
+      conditions = ["attempts > 0 AND failed_at IS NULL AND locked_at IS NULL #{queue_filter_sql}"]
+      conditions << queue_filter_params if queue_filter_params
+      query_hash[:failing]   = DelayedJob.find(:all, :conditions => conditions)
       # Jobs that have permanently failed
-      query_hash[:failed]    = DelayedJob.find(:all, :conditions => 'failed_at IS NOT NULL')
+      conditions = ["failed_at IS NOT NULL #{queue_filter_sql}"]
+      conditions << queue_filter_params if queue_filter_params
+      query_hash[:failed]    = DelayedJob.find(:all, :conditions => conditions)
       # The oldest job that hasn't yet been run, in minutes
-      query_hash[:oldest]    = DelayedJob.find(:all, :conditions => [ 'run_at <= ? AND locked_at IS NULL AND attempts = 0', Time.now.utc ], :order => :run_at)
+      conditions = ["run_at <= ? AND locked_at IS NULL AND attempts = 0 #{queue_filter_sql}", Time.now.utc]
+      conditions << queue_filter_params if queue_filter_params
+      query_hash[:oldest]    = DelayedJob.find(:all, :conditions => conditions, :order => :run_at)
     end
 
     report_hash = Hash.new

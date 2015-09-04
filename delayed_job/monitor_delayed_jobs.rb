@@ -121,7 +121,7 @@ class MonitorDelayedJobs < Scout::Plugin
     report(report_hash)
 
   rescue DbConnError => err
-    error("ERROR: #{err.message} connecting to database")
+    error("ERROR: connecting to database", err.message)
   end
 
 private
@@ -131,8 +131,8 @@ private
     # Ensure path to db config provided
     if !app_path or app_path.empty?
       raise DbConnError.new(
-        "The path to the Rails Application wasn't provided.",
-        "Please provide the full path to the Rails Application (ie - /var/www/apps/APP_NAME/current)"
+        "The path to the Rails Application wasn't provided.
+        Please provide the full path to the Rails Application (ie - /var/www/apps/APP_NAME/current)"
       )
     end
 
@@ -140,8 +140,8 @@ private
 
     unless File.exist?(db_config_path)
       raise DbConnError.new(
-        "The database config file could not be found at: #{db_config_path}",
-        "Please ensure the path to the Rails Application is correct."
+        "The database config file could not be found at: #{db_config_path}
+        Please ensure the path to the Rails Application is correct."
       )
     end
 

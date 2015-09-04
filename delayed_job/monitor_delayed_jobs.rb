@@ -121,7 +121,7 @@ class MonitorDelayedJobs < Scout::Plugin
     report(report_hash)
 
   rescue DbConnError => err
-    STDERR.puts "ERROR: #{err.message} connecting to database"
+    error("ERROR: #{err.message} connecting to database")
   end
 
 private

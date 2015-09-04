@@ -1,8 +1,6 @@
 $VERBOSE=false
 
 class MonitorDelayedJobs < Scout::Plugin
-  ONE_DAY    = 60 * 60 * 24
-
   OPTIONS=<<-OPTIONS_DESCRIPTION_YAML
   path_to_app:
     name: Full Path to the Rails Application

@@ -27,6 +27,8 @@ class MonitorDelayedJobs < Scout::Plugin
   class DbConnError < StandardError; end
 
   class DelayedJob < ActiveRecord::Base
+    self.default_timezone = :utc
+
     def self.custom_count(query_conditions)
       if new_activerecord_version?
         # ActiveRecord >= 3.x uses AREL query format
@@ -55,7 +57,6 @@ class MonitorDelayedJobs < Scout::Plugin
     end
   end
 
-  DelayedJob.default_timezone = :utc
 
   DELAYED_JOB_QUERIES = {
     :total => {

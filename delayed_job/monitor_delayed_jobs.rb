@@ -130,13 +130,19 @@ private
 
     # Ensure path to db config provided
     if !app_path or app_path.empty?
-      raise DbConnError.new("The path to the Rails Application wasn't provided.","Please provide the full path to the Rails Application (ie - /var/www/apps/APP_NAME/current)")
+      raise DbConnError.new(
+        "The path to the Rails Application wasn't provided.",
+        "Please provide the full path to the Rails Application (ie - /var/www/apps/APP_NAME/current)"
+      )
     end
 
     db_config_path = app_path + '/config/database.yml'
 
     unless File.exist?(db_config_path)
-      raise DbConnError.new("The database config file could not be found.", "The database config file could not be found at: #{db_config_path}. Please ensure the path to the Rails Application is correct.")
+      raise DbConnError.new(
+        "The database config file could not be found at: #{db_config_path}",
+        "Please ensure the path to the Rails Application is correct."
+      )
     end
 
     db_config = YAML::load(ERB.new(File.read(db_config_path)).result)

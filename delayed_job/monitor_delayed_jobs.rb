@@ -26,13 +26,40 @@ class MonitorDelayedJobs < Scout::Plugin
   require 'rubygems'
   require 'active_record'
 
-
   class DbConnError < StandardError; end
-  class DelayedJob < ActiveRecord::Base; end
+
+  class DelayedJob < ActiveRecord::Base
+    def self.custom_count(query_conditions)
+      if new_activerecord_version?
+        # ActiveRecord >= 3.x uses AREL query format
+        where(query_conditions).count
+      else
+        # ActiveRecord 2.x compatible
+        count(:all, :conditions => query_conditions)
+      end
+    end
+
+    def self.custom_select(select_clause, query_conditions)
+      if new_activerecord_version?
+        # ActiveRecord >= 3.x uses AREL query format
+        select(select_clause).where(query_conditions)
+      else
+        # ActiveRecord 2.x compatible
+        find_by_sql [
+          "SELECT #{select_clause} FROM #{DelayedJob.table_name} WHERE #{query_conditions.shift}",
+          *query_conditions
+        ]
+      end
+    end
+
+    def self.new_activerecord_version?
+      DelayedJob.respond_to?(:where)
+    end
+  end
+
   DelayedJob.default_timezone = :utc
 
-
-  QUERY_DEFS = {
+  DELAYED_JOB_QUERIES = {
     :total => {
       :sql => 'id IS NOT NULL'
     },
@@ -74,49 +101,23 @@ class MonitorDelayedJobs < Scout::Plugin
     setup_database_connection
 
     report_hash = Hash.new
-    QUERY_DEFS.each do |name, criteria|
+
+    DELAYED_JOB_QUERIES.each do |name, criteria|
       sql = criteria[:sql] + queue_filter_sql
       args = criteria.fetch(:args, [])
       args << queue_filter_params if queue_filter_params
       query_conditions = args.unshift(sql)
 
-      if DelayedJob.respond_to?(:where)
-        #
-        # ActiveRecord >= 3.x uses AREL query format
-        #
-        report_hash[name] = if criteria[:select]
-                              query = DelayedJob.select(criteria[:select]).where(query_conditions)
-                              if criteria[:calc].respond_to? :call
-                                criteria[:calc].call(query)
-                              else
-                                query
-                              end
-                            else
-                              DelayedJob.where(query_conditions).count
-                            end
+      report_hash[name] = if criteria[:select]
+                            criteria.fetch(:calc, Proc.new {|x| x}).call(
+                              DelayedJob.custom_select(criteria[:select], query_conditions)
+                            )
+                          else
+                            DelayedJob.custom_count(query_conditions)
+                          end
 
-      else
-        #
-        # ActiveRecord 2.x compatible
-        #
-        report_hash[name] = if criteria[:select]
-                              query = DelayedJob.find_by_sql [
-                                "SELECT #{criteria[:select]} FROM #{DelayedJob.table_name} WHERE #{query_conditions.shift}",
-                                *query_conditions
-                              ]
-                              if criteria[:calc].respond_to? :call
-                                criteria[:calc].call(query)
-                              else
-                                query
-                              end
-                            else
-                              DelayedJob.count(:all, :conditions => query_conditions)
-                            end
-      end
 
     end
-
-    #report_hash[:queue] = option(:queue_name) || "except #{option(:exclude_queue_name)}"
 
     report(report_hash)
 
@@ -141,8 +142,15 @@ private
 
     db_config = YAML::load(ERB.new(File.read(db_config_path)).result)
     ActiveRecord::Base.establish_connection(db_config[option(:rails_env)])
-    #ActiveRecord::Base.logger = Logger.new(STDOUT) if "production" != option(:rails_env)
-    ActiveRecord::Base.connection.instance_variable_set :@logger, Logger.new(STDOUT)
+
+    if "production" != option(:rails_env)
+      # log to STDOUT except in production
+      if DelayedJob.new_activerecord_version?
+        ActiveRecord::Base.logger = Logger.new(STDOUT)
+      else
+        ActiveRecord::Base.connection.instance_variable_set :@logger, Logger.new(STDOUT)
+      end
+    end
   end
 
   def queue_filter_params

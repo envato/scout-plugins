@@ -1,9 +1,7 @@
 $VERBOSE=false
 
 class MonitorDelayedJobs < Scout::Plugin
-  ONE_DAY    = 60 * 60 * 24
-
-  OPTIONS=<<-EOS
+  OPTIONS=<<-OPTIONS_DESCRIPTION_YAML
   path_to_app:
     name: Full Path to the Rails Application
     notes: "The full path to the Rails application (ex: /var/www/apps/APP_NAME/current)."
@@ -12,93 +10,165 @@ class MonitorDelayedJobs < Scout::Plugin
     default: production
   queue_name:
     name: Queue Name
-    notes: If specified, only gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues. Not supported with ActiveRecord 2.x. Default is nil
-  EOS
+    notes: If specified, only gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless exclude_queue_name is specified. Default is nil
+  exclude_queue_name:
+    name: Exclude Queue Name
+    notes: If specified, do not gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless queue_name specified. Default is nil.
+  OPTIONS_DESCRIPTION_YAML
 
-  needs 'active_record', 'yaml', 'erb'
+  needs 'active_record', 'active_support', 'yaml', 'erb'
 
   require 'thread'
   # IMPORTANT! Requiring Rubygems is NOT a best practice. See http://scoutapp.com/info/creating_a_plugin#libraries
   # This plugin is an exception because we to subclass ActiveRecord::Base before the plugin's build_report method is run.
   require 'rubygems'
   require 'active_record'
-  class DelayedJob < ActiveRecord::Base; end
-  DelayedJob.default_timezone = :utc
+
+  class DbConnError < StandardError; end
+
+  class DelayedJob < ActiveRecord::Base
+    self.default_timezone = :utc
+
+    def self.custom_count(query_conditions)
+      if new_activerecord_version?
+        # ActiveRecord >= 3.x uses AREL query format
+        where(query_conditions).count
+      else
+        # ActiveRecord 2.x compatible
+        count(:all, :conditions => query_conditions)
+      end
+    end
+
+    def self.custom_select(select_clause, query_conditions)
+      if new_activerecord_version?
+        # ActiveRecord >= 3.x uses AREL query format
+        select(select_clause).where(query_conditions)
+      else
+        # ActiveRecord 2.x compatible
+        find_by_sql [
+          "SELECT #{select_clause} FROM #{DelayedJob.table_name} WHERE #{query_conditions.shift}",
+          *query_conditions
+        ]
+      end
+    end
+
+    def self.new_activerecord_version?
+      DelayedJob.respond_to?(:where)
+    end
+  end
+
+
+  DELAYED_JOB_QUERIES = {
+    :total => {
+      :sql => 'id IS NOT NULL'
+    },
+    # Jobs that are currently being run by workers
+    :running => {
+      :sql => 'locked_at IS NOT NULL AND failed_at IS NULL'
+    },
+    # Jobs that are ready to run but haven't ever been run
+    :waiting => {
+      :sql => 'run_at <= ? AND locked_at IS NULL AND attempts = 0', :args => [ Time.now.utc ]
+    },
+    # Jobs that haven't ever been run but are not set to run until later
+    :scheduled => {
+      :sql => 'run_at > ? AND locked_at IS NULL AND attempts = 0', :args => [ Time.now.utc ]
+    },
+    # Jobs that aren't running that have failed at least once
+    :failing => {
+      :sql => 'attempts > 0 AND failed_at IS NULL AND locked_at IS NULL'
+    },
+    # Jobs that have permanently failed
+    :failed => {
+      :sql => 'failed_at IS NOT NULL'
+    },
+    # The oldest job that hasn't yet been run, in minutes
+    :oldest => {
+      :sql => 'run_at <= ? AND locked_at IS NULL AND attempts = 0', :args => [ Time.now.utc ],
+      :select => 'MIN(run_at) as run_at',
+      :calc => Proc.new do |query|
+        begin
+          ((Time.now.utc - query.first.run_at) / 60).floor
+        rescue
+          0
+        end
+      end
+    }
+  }.freeze
 
   def build_report
+    setup_database_connection
+
+    report_hash = Hash.new
+
+    DELAYED_JOB_QUERIES.each do |name, criteria|
+      sql = criteria[:sql] + queue_filter_sql
+      args = criteria.fetch(:args, [])
+      args << queue_filter_params if queue_filter_params
+      query_conditions = args.unshift(sql)
+
+      report_hash[name] = if criteria[:select]
+                            criteria.fetch(:calc, Proc.new {|x| x}).call(
+                              DelayedJob.custom_select(criteria[:select], query_conditions)
+                            )
+                          else
+                            DelayedJob.custom_count(query_conditions)
+                          end
+
+
+    end
+
+    report(report_hash)
+
+  rescue DbConnError => err
+    error("ERROR: connecting to database", err.message)
+  end
+
+private
+  def setup_database_connection
     app_path = option(:path_to_app)
 
     # Ensure path to db config provided
     if !app_path or app_path.empty?
-      return error("The path to the Rails Application wasn't provided.","Please provide the full path to the Rails Application (ie - /var/www/apps/APP_NAME/current)")
+      raise DbConnError.new(
+        "The path to the Rails Application wasn't provided.
+        Please provide the full path to the Rails Application (ie - /var/www/apps/APP_NAME/current)"
+      )
     end
 
     db_config_path = app_path + '/config/database.yml'
 
-    if !File.exist?(db_config_path)
-      return error("The database config file could not be found.", "The database config file could not be found at: #{db_config_path}. Please ensure the path to the Rails Application is correct.")
+    unless File.exist?(db_config_path)
+      raise DbConnError.new(
+        "The database config file could not be found at: #{db_config_path}
+        Please ensure the path to the Rails Application is correct."
+      )
     end
 
     db_config = YAML::load(ERB.new(File.read(db_config_path)).result)
     ActiveRecord::Base.establish_connection(db_config[option(:rails_env)])
 
-    # The hash which will store the query commands.
-    query_hash = Hash.new
-
-    if DelayedJob.respond_to?(:where)
-      # ActiveRecord >= 3.x uses AREL query format
-      # All jobs
-      query_hash[:total]     = DelayedJob
-      # Jobs that are currently being run by workers
-      query_hash[:running]   = DelayedJob.where('locked_at IS NOT NULL AND failed_at IS NULL')
-      # Jobs that are ready to run but haven't ever been run
-      query_hash[:waiting]   = DelayedJob.where('run_at <= ? AND locked_at IS NULL AND attempts = 0', Time.now.utc)
-      # Jobs that haven't ever been run but are not set to run until later
-      query_hash[:scheduled] = DelayedJob.where('run_at > ? AND locked_at IS NULL AND attempts = 0', Time.now.utc)
-      # Jobs that aren't running that have failed at least once
-      query_hash[:failing]   = DelayedJob.where('attempts > 0 AND failed_at IS NULL AND locked_at IS NULL')
-      # Jobs that have permanently failed
-      query_hash[:failed]    = DelayedJob.where('failed_at IS NOT NULL')
-      # The oldest job that hasn't yet been run, in minutes
-      query_hash[:oldest]    = DelayedJob.where('run_at <= ? AND locked_at IS NULL AND attempts = 0', Time.now.utc).order(:run_at)
-
-      if option(:queue_name)
-        query_hash.keys.each do |key|
-          query_hash[key] = query_hash[key].where('queue = ?', option(:queue_name))
-        end
+    if "production" != option(:rails_env)
+      # log to STDOUT except in production
+      if DelayedJob.new_activerecord_version?
+        ActiveRecord::Base.logger = Logger.new(STDOUT)
+      else
+        ActiveRecord::Base.connection.instance_variable_set :@logger, Logger.new(STDOUT)
       end
-    else
-      # ActiveRecord 2.x compatible
-      # All jobs
-      query_hash[:total]     = DelayedJob
-      # Jobs that are currently being run by workers
-      query_hash[:running]   = DelayedJob.find(:all, :conditions => 'locked_at IS NOT NULL AND failed_at IS NULL')
-      # Jobs that are ready to run but haven't ever been run
-      query_hash[:waiting]   = DelayedJob.find(:all, :conditions => ['run_at <= ? AND locked_at IS NULL AND attempts = 0', Time.now.utc])
-      # Jobs that haven't ever been run but are not set to run until later
-      query_hash[:scheduled] = DelayedJob.find(:all, :conditions => ['run_at > ? AND locked_at IS NULL AND attempts = 0', Time.now.utc])
-      # Jobs that aren't running that have failed at least once
-      query_hash[:failing]   = DelayedJob.find(:all, :conditions => 'attempts > 0 AND failed_at IS NULL AND locked_at IS NULL')
-      # Jobs that have permanently failed
-      query_hash[:failed]    = DelayedJob.find(:all, :conditions => 'failed_at IS NOT NULL')
-      # The oldest job that hasn't yet been run, in minutes
-      query_hash[:oldest]    = DelayedJob.find(:all, :conditions => [ 'run_at <= ? AND locked_at IS NULL AND attempts = 0', Time.now.utc ], :order => :run_at)
     end
+  end
 
-    report_hash = Hash.new
+  def queue_filter_params
+    @queue_filter_params ||= option(:queue_name) || option(:exclude_queue_name)
+  end
 
-    # Execute .count on these query_hash keys and store in report_hash
-    query_hash.keys.select{|k| [:total, :running, :waiting, :scheduled, :failing, :failed].include?(k)}.each do |key|
-      report_hash[key] = query_hash[key].count
-    end
-
-    # The oldest job that hasn't yet been run, in minutes
-    if oldest = query_hash[:oldest].first
-      report_hash[:oldest] = (Time.now.utc - oldest.run_at) / 60
-    else
-      report_hash[:oldest] = 0
-    end
-
-    report(report_hash)
+  def queue_filter_sql
+    @queue_filter_sql ||= if option(:queue_name)
+                            ' AND queue = ?'
+                          elsif option(:exclude_queue_name)
+                            ' AND ( queue <> ? or queue IS NULL )'
+                          else
+                            ''
+                          end
   end
 end

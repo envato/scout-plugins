@@ -8,6 +8,9 @@ group :test do
   gem 'timecop'
   gem 'pry'
   gem 'pry-doc'
+  gem 'rspec'
+  gem 'rspec-core'
+  gem 'sqlite3'
 end
 
 # plugin-specific
@@ -22,7 +25,4 @@ gem 'resque'
 gem 'nokogiri'
 gem 'memcache-client'
 gem 'sidekiq'
-gem 'rspec-core'
 gem 'activerecord', '~> 3'
-gem 'sqlite3'
-gem 'rspec'

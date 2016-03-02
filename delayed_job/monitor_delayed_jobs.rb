@@ -103,7 +103,7 @@ class MonitorDelayedJobs < Scout::Plugin
 
     DELAYED_JOB_QUERIES.each do |name, criteria|
       sql = criteria[:sql] + queue_filter_sql
-      args = criteria.fetch(:args, [])
+      args = criteria.fetch(:args, []).dup
       args << queue_filter_params if queue_filter_params
       query_conditions = args.unshift(sql)
 

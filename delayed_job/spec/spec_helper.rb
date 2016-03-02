@@ -1,8 +1,7 @@
 require 'rubygems'
-gem 'activerecord'
-require 'activerecord'
-require 'spec'
+require 'active_record'
 require 'scout'
+require 'rspec'
 require File.dirname(__FILE__) + '/../monitor_delayed_jobs'
 
 RAILS_ROOT = File.dirname(__FILE__) + '/rails'

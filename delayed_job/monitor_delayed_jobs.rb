@@ -168,19 +168,15 @@ private
     if option(:custom_loader)
       custom_loader = File.join(app_path, option(:custom_loader))
 
-      begin
-        require custom_loader
-        klass_file = File.basename(custom_loader)
-        if klass_match = klass_file.match(/(.*)(\.\w+$)/)
-          klass = camelize(klass_match[1])
-        else
-          klass = camelize(klass_file)
-        end
-
-        Kernel.const_get(klass).send("load!", option(:rails_env))
-      rescue LoadError
-        # Do nothing
+      require custom_loader
+      klass_file = File.basename(custom_loader)
+      if klass_match = klass_file.match(/(.*)(\.\w+$)/)
+        klass = camelize(klass_match[1])
+      else
+        klass = camelize(klass_file)
       end
+
+      Kernel.const_get(klass).send("load!", option(:rails_env))
     end
   end
 

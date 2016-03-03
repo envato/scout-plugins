@@ -14,6 +14,10 @@ class MonitorDelayedJobs < Scout::Plugin
   exclude_queue_name:
     name: Exclude Queue Name
     notes: If specified, do not gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless queue_name specified. Default is nil.
+  custom_loader:
+    name: Custom Loader
+    notes: If specified, requires the specified file (assuming it's in the path_to_app) and attempts to call a Class Method "load!"
+    This is useful for executing arbitrary code from within the plugin :). Specifically where your database.yml ERB might require classes defined that return values.
   OPTIONS_DESCRIPTION_YAML
 
   needs 'active_record', 'active_support', 'yaml', 'erb'
@@ -97,13 +101,14 @@ class MonitorDelayedJobs < Scout::Plugin
   }.freeze
 
   def build_report
+    custom_loader
     setup_database_connection
 
     report_hash = Hash.new
 
     DELAYED_JOB_QUERIES.each do |name, criteria|
       sql = criteria[:sql] + queue_filter_sql
-      args = criteria.fetch(:args, [])
+      args = criteria.fetch(:args, []).dup
       args << queue_filter_params if queue_filter_params
       query_conditions = args.unshift(sql)
 
@@ -158,6 +163,23 @@ private
     end
   end
 
+  def custom_loader
+    app_path = option(:path_to_app)
+    if option(:custom_loader)
+      custom_loader = File.join(app_path, option(:custom_loader))
+
+      require custom_loader
+      klass_file = File.basename(custom_loader)
+      if klass_match = klass_file.match(/(.*)(\.\w+$)/)
+        klass = camelize(klass_match[1])
+      else
+        klass = camelize(klass_file)
+      end
+
+      Kernel.const_get(klass).send("load!", option(:rails_env))
+    end
+  end
+
   def queue_filter_params
     @queue_filter_params ||= option(:queue_name) || option(:exclude_queue_name)
   end
@@ -170,5 +192,10 @@ private
                           else
                             ''
                           end
+  end
+
+  # Taken from http://infovore.org/archives/2006/08/11/writing-your-own-camelizer-in-ruby/
+  def camelize(str)
+    str.split('_').map {|w| w.capitalize}.join
   end
 end

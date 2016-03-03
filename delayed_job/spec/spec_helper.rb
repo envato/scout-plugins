@@ -1,14 +1,13 @@
 require 'rubygems'
-gem 'activerecord'
-require 'activerecord'
-require 'spec'
+require 'active_record'
 require 'scout'
+require 'rspec'
 require File.dirname(__FILE__) + '/../monitor_delayed_jobs'
 
 RAILS_ROOT = File.dirname(__FILE__) + '/rails'
 
 FileUtils.rm_rf RAILS_ROOT + '/db/test.sqlite3'
-ActiveRecord::Base.establish_connection :adapter => 'sqlite3', :database => RAILS_ROOT + '/db/test.sqlite3'
+ActiveRecord::Base.establish_connection :adapter => 'sqlite3', :database => 'db/test.sqlite3'
 
 class CreateDelayedJobs < ActiveRecord::Migration
   def self.up

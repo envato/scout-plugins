@@ -21,7 +21,7 @@ describe MonitorDelayedJobs, 'build_report' do
   end
 
   it "has options that are valid YAML" do
-    expect{YAML.load(described_class::OPTIONS)}.not_to raise_error
+    expect(YAML.load(described_class::OPTIONS)).to be_a Hash
   end
   
   it "should report the total number of jobs" do

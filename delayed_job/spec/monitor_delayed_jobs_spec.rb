@@ -19,6 +19,10 @@ describe MonitorDelayedJobs, 'build_report' do
   after(:each) do
     MonitorDelayedJobs::DelayedJob.delete_all
   end
+
+  it "has options that are valid YAML" do
+    expect{YAML.load(described_class::OPTIONS)}.not_to raise_error
+  end
   
   it "should report the total number of jobs" do
     2.times {MonitorDelayedJobs::DelayedJob.create!}

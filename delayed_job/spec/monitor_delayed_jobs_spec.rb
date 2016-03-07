@@ -20,7 +20,7 @@ describe MonitorDelayedJobs, 'build_report' do
     MonitorDelayedJobs::DelayedJob.delete_all
   end
 
-  it "has options that are valid YAML" do
+  it "can load options into a hash" do
     expect(YAML.load(described_class::OPTIONS)).to be_a Hash
   end
   

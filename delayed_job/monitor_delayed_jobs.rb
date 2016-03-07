@@ -10,14 +10,13 @@ class MonitorDelayedJobs < Scout::Plugin
     default: production
   queue_name:
     name: Queue Name
-    notes: If specified, only gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless exclude_queue_name is specified. Default is nil
+    notes: 'If specified, only gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless exclude_queue_name is specified. Default is nil'
   exclude_queue_name:
     name: Exclude Queue Name
-    notes: If specified, do not gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless queue_name specified. Default is nil.
+    notes: 'If specified, do not gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless queue_name specified. Default is nil.'
   custom_loader:
-    name: Custom Loader
-    notes: If specified, requires the specified file (assuming it's in the path_to_app) and attempts to call a Class Method "load!"
-    This is useful for executing arbitrary code from within the plugin :). Specifically where your database.yml ERB might require classes defined that return values.
+    name: 'Custom Loader'
+    notes: 'If specified, requires the specified file (assuming its in the path_to_app) and attempts to call a Class Method "load!". This is useful for executing arbitrary code from within the plugin :). Specifically where your database.yml ERB might require classes defined that return values.'
   OPTIONS_DESCRIPTION_YAML
 
   needs 'active_record', 'active_support', 'yaml', 'erb'

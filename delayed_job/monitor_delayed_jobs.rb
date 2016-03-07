@@ -3,16 +3,16 @@ $VERBOSE=false
 class MonitorDelayedJobs < Scout::Plugin
   OPTIONS=<<-OPTIONS_DESCRIPTION_YAML
   path_to_app:
-    name: Full Path to the Rails Application
+    name: 'Full Path to the Rails Application'
     notes: "The full path to the Rails application (ex: /var/www/apps/APP_NAME/current)."
   rails_env:
-    name: Rails environment that should be used
+    name: 'Rails environment that should be used'
     default: production
   queue_name:
-    name: Queue Name
+    name: 'Queue Name'
     notes: 'If specified, only gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless exclude_queue_name is specified. Default is nil'
   exclude_queue_name:
-    name: Exclude Queue Name
+    name: 'Exclude Queue Name'
     notes: 'If specified, do not gather the metrics for jobs in this specific queue name. When nil, aggregate metrics from all queues, unless queue_name specified. Default is nil.'
   custom_loader:
     name: 'Custom Loader'

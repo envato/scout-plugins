@@ -19,6 +19,10 @@ describe MonitorDelayedJobs, 'build_report' do
   after(:each) do
     MonitorDelayedJobs::DelayedJob.delete_all
   end
+
+  it "can load options into a hash" do
+    expect(YAML.load(described_class::OPTIONS)).to be_a Hash
+  end
   
   it "should report the total number of jobs" do
     2.times {MonitorDelayedJobs::DelayedJob.create!}

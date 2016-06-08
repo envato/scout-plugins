@@ -149,9 +149,9 @@ class SphinxMonitor < Scout::Plugin
     else
       return nil
     end
-    step = if line.match('rotating finished')
+    step = if line.match('rotating finished') || line.match('all indexes done')
              :finish
-           elsif line.match('rotating indices')
+           elsif line.match('rotating indices') || line.match('caught SIGHUP')
              :start
            else
              :intermediate
